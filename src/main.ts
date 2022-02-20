@@ -1,8 +1,19 @@
-import './style.css'
+import { easing } from "ts-easing";
+import { Chart } from "./chart";
+import { functions } from "./functions";
+import "./style.css";
+import { createOptions } from "./utils/html";
 
-const app = document.querySelector<HTMLDivElement>('#app')!
+const easingSelect = document.querySelector<HTMLSelectElement>("#easing")!;
+easingSelect.append(...createOptions(Object.keys(easing)));
 
-app.innerHTML = `
-  <h1>Hello Vite!</h1>
-  <a href="https://vitejs.dev/guide/features.html" target="_blank">Documentation</a>
-`
+const functionSelect = document.querySelector<HTMLSelectElement>("#functions")!;
+functionSelect.append(...createOptions(Object.keys(functions)));
+
+const chartElement = document.querySelector<HTMLCanvasElement>("#chart")!;
+
+const chart = new Chart({
+  container: chartElement,
+  width: 800,
+  height: 600,
+});

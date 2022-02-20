@@ -4,10 +4,20 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite App</title>
+    <title>Canvas chart transforms</title>
   </head>
-  <body>
-    <div id="app"></div>
+  <body
+    class="flex h-screen items-center justify-center overflow-hidden bg-gray-900"
+  >
+    <select
+      id="functions"
+      class="fixed top-4 left-4 bg-gray-700 text-gray-50"
+    ></select>
+    <select
+      id="easing"
+      class="fixed top-4 right-4 bg-gray-700 text-gray-50"
+    ></select>
+    <div id="chart" class="chart"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
