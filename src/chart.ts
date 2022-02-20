@@ -34,8 +34,8 @@ export class Chart {
       max: 50,
     },
   };
-  edges: { top: number; right: number; bottom: number; left: number };
-  scale: { x: number; y: number };
+  private edges: { top: number; right: number; bottom: number; left: number };
+  private scale: { x: number; y: number };
 
   constructor({ container, width, height }: IChartProps) {
     this.width = width;
