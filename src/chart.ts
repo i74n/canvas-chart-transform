@@ -1,6 +1,7 @@
 import { degToRad } from "./utils/degToRad";
 import { createCanvas } from "./utils/html";
 import { measureText } from "./utils/measureText";
+import { animate } from "./utils/animate";
 
 interface IChartProps {
   container: HTMLElement;
@@ -14,7 +15,7 @@ interface Layer {
   ctx: CanvasRenderingContext2D;
 }
 
-export class Chart {
+export class Chart extends EventTarget {
   private grid: Layer;
   private chart: Layer;
 
@@ -26,18 +27,25 @@ export class Chart {
 
   private extremums: { [axis: string]: { min: number; max: number } } = {
     x: {
-      min: -24.55,
-      max: 50,
+      min: -20,
+      max: 20,
     },
     y: {
-      min: -50,
-      max: 50,
+      min: -100,
+      max: 100,
     },
   };
   private edges: { top: number; right: number; bottom: number; left: number };
   private scale: { x: number; y: number };
+  private center: { x: number; y: number };
+
+  #fn?: (x: number) => number;
+
+  public easing: (x: number) => number = (x) => x;
 
   constructor({ container, width, height }: IChartProps) {
+    super();
+
     this.width = width;
     this.height = height;
     this.container = container;
@@ -54,8 +62,25 @@ export class Chart {
 
     this.edges = this.calcEdges();
     this.scale = this.calcScale();
+    this.center = this.calcCenter();
 
     this.renderGrid();
+  }
+
+  set fn(value: (x: number) => number) {
+    if (typeof value !== "function") {
+      throw new TypeError("fn should be a function");
+    }
+
+    this.dispatchEvent(new CustomEvent("transitionstart"));
+
+    this.animatedFunctionTransition(this.#fn ?? (() => 0), value).then(() =>
+      this.dispatchEvent(new CustomEvent("transitionend"))
+    );
+
+    this.#fn = value;
+
+    this.drawFunction(this.#fn);
   }
 
   private createLayer(): Layer {
@@ -88,6 +113,13 @@ export class Chart {
     };
   }
 
+  private calcCenter() {
+    return {
+      x: (this.edges.left + this.edges.right) / 2,
+      y: (this.edges.top + this.edges.bottom) / 2,
+    };
+  }
+
   private renderGrid() {
     this.grid.ctx.save();
 
@@ -96,18 +128,13 @@ export class Chart {
     this.grid.ctx.font = "16px consolas";
     this.grid.ctx.fillStyle = "#a2a3a4";
 
-    const center = {
-      x: (this.edges.left + this.edges.right) / 2,
-      y: (this.edges.top + this.edges.bottom) / 2,
-    };
-
     // horizontal line
-    this.grid.ctx.moveTo(this.edges.left, center.y);
-    this.grid.ctx.lineTo(this.edges.right, center.y);
+    this.grid.ctx.moveTo(this.edges.left, this.center.y);
+    this.grid.ctx.lineTo(this.edges.right, this.center.y);
 
     // vertical line
-    this.grid.ctx.moveTo(center.x, this.edges.top);
-    this.grid.ctx.lineTo(center.x, this.edges.bottom);
+    this.grid.ctx.moveTo(this.center.x, this.edges.top);
+    this.grid.ctx.lineTo(this.center.x, this.edges.bottom);
 
     this.grid.ctx.lineWidth = 1;
 
@@ -119,15 +146,15 @@ export class Chart {
       const drawDash = (x: number) => {
         const dashX =
           this.edges.left + (x - this.extremums.x.min) * this.scale.x;
-        this.grid.ctx.moveTo(dashX, center.y - dashSize / 2);
-        this.grid.ctx.lineTo(dashX, center.y + dashSize / 2);
+        this.grid.ctx.moveTo(dashX, this.center.y - dashSize / 2);
+        this.grid.ctx.lineTo(dashX, this.center.y + dashSize / 2);
 
         this.grid.ctx.save();
-        const label = Math.round(x).toString();
+        const label = x.toFixed(1);
         const { width } = measureText(this.grid.ctx, label);
         this.grid.ctx.translate(
           dashX - width / 2,
-          center.y + dashSize + dashMargin
+          this.center.y + dashSize + dashMargin
         );
         this.grid.ctx.rotate(degToRad(45));
         this.grid.ctx.fillText(label, 0, 0);
@@ -151,21 +178,21 @@ export class Chart {
       const drawDash = (y: number) => {
         const dashY =
           this.edges.bottom - (y - this.extremums.y.min) * this.scale.y;
-        this.grid.ctx.moveTo(center.x - dashSize / 2, dashY);
-        this.grid.ctx.lineTo(center.x + dashSize / 2, dashY);
+        this.grid.ctx.moveTo(this.center.x - dashSize / 2, dashY);
+        this.grid.ctx.lineTo(this.center.x + dashSize / 2, dashY);
 
         this.grid.ctx.save();
 
         this.grid.ctx.textBaseline = "top";
         this.grid.ctx.textAlign = "left";
 
-        const label = Math.round(y).toString();
+        const label = y.toFixed(1);
         const { width } = measureText(this.grid.ctx, label);
 
         const angle = degToRad(45);
 
         this.grid.ctx.translate(
-          center.x - dashSize / 2 - dashMargin - width * Math.cos(angle),
+          this.center.x - dashSize / 2 - dashMargin - width * Math.cos(angle),
           dashY - (width * Math.sin(angle)) / 2
         );
         this.grid.ctx.rotate(angle);
@@ -192,5 +219,51 @@ export class Chart {
     this.grid.ctx.stroke();
 
     this.grid.ctx.restore();
+  }
+
+  private drawFunction(fn: (x: number) => number) {
+    this.chart.ctx.clearRect(0, 0, this.width, this.height);
+
+    this.chart.ctx.save();
+
+    this.chart.ctx.lineWidth = 2;
+
+    this.chart.ctx.beginPath();
+
+    const calcPoint = (x: number) => {
+      const y = fn(this.extremums.x.min + x / this.scale.x);
+      return this.center.y - this.scale.y * y;
+    };
+
+    const step = 1;
+
+    this.chart.ctx.moveTo(this.edges.left, calcPoint(this.edges.left));
+
+    for (let x = this.edges.left + step; x <= this.edges.right; x += step) {
+      this.chart.ctx.lineTo(this.padding + x, calcPoint(x));
+    }
+
+    this.chart.ctx.strokeStyle = "cornflowerblue";
+
+    this.chart.ctx.stroke();
+
+    this.chart.ctx.restore();
+  }
+
+  private async animatedFunctionTransition(
+    from: (x: number) => number,
+    to: (x: number) => number
+  ) {
+    const NaNToZero = (num: number) => (Number.isNaN(num) ? 0 : num);
+
+    const onFrame = (animationProgress: number) => {
+      this.drawFunction((x) => {
+        const [fromY, toY] = [from(x), to(x)].map(NaNToZero);
+
+        return fromY + animationProgress * (toY - fromY);
+      });
+    };
+
+    await animate(1000, onFrame, this.easing);
   }
 }
