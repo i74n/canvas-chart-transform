@@ -14,6 +14,6 @@ const chartElement = document.querySelector<HTMLCanvasElement>("#chart")!;
 
 const chart = new Chart({
   container: chartElement,
-  width: 800,
-  height: 600,
+  width: window.innerWidth * 0.8,
+  height: window.innerHeight * 0.8,
 });
