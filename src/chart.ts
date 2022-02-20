@@ -34,6 +34,8 @@ export class Chart {
       max: 50,
     },
   };
+  edges: { top: number; right: number; bottom: number; left: number };
+  scale: { x: number; y: number };
 
   constructor({ container, width, height }: IChartProps) {
     this.width = width;
@@ -50,6 +52,9 @@ export class Chart {
 
     this.container.append(this.grid.canvas, this.chart.canvas);
 
+    this.edges = this.calcEdges();
+    this.scale = this.calcScale();
+
     this.renderGrid();
   }
 
@@ -63,6 +68,26 @@ export class Chart {
     return { canvas, ctx };
   }
 
+  private calcEdges() {
+    return {
+      top: this.padding,
+      right: this.width - this.padding,
+      bottom: this.height - this.padding,
+      left: this.padding,
+    };
+  }
+
+  private calcScale() {
+    return {
+      x:
+        (this.edges.right - this.edges.left) /
+        (this.extremums.x.max - this.extremums.x.min),
+      y:
+        (this.edges.bottom - this.edges.top) /
+        (this.extremums.y.max - this.extremums.y.min),
+    };
+  }
+
   private renderGrid() {
     this.grid.ctx.save();
 
@@ -71,109 +96,98 @@ export class Chart {
     this.grid.ctx.font = "16px consolas";
     this.grid.ctx.fillStyle = "#a2a3a4";
 
-    const edges = {
-      top: this.padding,
-      right: this.width - this.padding,
-      bottom: this.height - this.padding,
-      left: this.padding,
-    };
-
     const center = {
-      x: (edges.left + edges.right) / 2,
-      y: (edges.top + edges.bottom) / 2,
+      x: (this.edges.left + this.edges.right) / 2,
+      y: (this.edges.top + this.edges.bottom) / 2,
     };
 
     // horizontal line
-    this.grid.ctx.moveTo(edges.left, center.y);
-    this.grid.ctx.lineTo(edges.right, center.y);
+    this.grid.ctx.moveTo(this.edges.left, center.y);
+    this.grid.ctx.lineTo(this.edges.right, center.y);
 
     // vertical line
-    this.grid.ctx.moveTo(center.x, edges.top);
-    this.grid.ctx.lineTo(center.x, edges.bottom);
+    this.grid.ctx.moveTo(center.x, this.edges.top);
+    this.grid.ctx.lineTo(center.x, this.edges.bottom);
 
     this.grid.ctx.lineWidth = 1;
-
-    const scale = {
-      x:
-        (edges.right - edges.left) /
-        (this.extremums.x.max - this.extremums.x.min),
-      y:
-        (edges.bottom - edges.top) /
-        (this.extremums.y.max - this.extremums.y.min),
-    };
-
-    console.log({
-      extremums: this.extremums,
-      edges,
-      center,
-      scale,
-    });
 
     const dashSize = 10;
     const dashMargin = 10;
 
-    const drawXDash = (x: number) => {
-      const dashX = edges.left + (x - this.extremums.x.min) * scale.x;
-      this.grid.ctx.moveTo(dashX, center.y - dashSize / 2);
-      this.grid.ctx.lineTo(dashX, center.y + dashSize / 2);
+    // draw horizontal dashes
+    const drawHorizontalDashes = () => {
+      const drawDash = (x: number) => {
+        const dashX =
+          this.edges.left + (x - this.extremums.x.min) * this.scale.x;
+        this.grid.ctx.moveTo(dashX, center.y - dashSize / 2);
+        this.grid.ctx.lineTo(dashX, center.y + dashSize / 2);
 
-      this.grid.ctx.save();
-      const label = Math.round(x).toString();
-      const { width } = measureText(this.grid.ctx, label);
-      this.grid.ctx.translate(
-        dashX - width / 2,
-        center.y + dashSize + dashMargin
-      );
-      this.grid.ctx.rotate(degToRad(45));
-      this.grid.ctx.fillText(label, 0, 0);
-      this.grid.ctx.restore();
+        this.grid.ctx.save();
+        const label = Math.round(x).toString();
+        const { width } = measureText(this.grid.ctx, label);
+        this.grid.ctx.translate(
+          dashX - width / 2,
+          center.y + dashSize + dashMargin
+        );
+        this.grid.ctx.rotate(degToRad(45));
+        this.grid.ctx.fillText(label, 0, 0);
+        this.grid.ctx.restore();
+      };
+
+      const start = (this.extremums.x.min + this.extremums.x.max) / 2;
+      const stop = this.extremums.x.max;
+      const step = (stop - start) / 10;
+
+      for (let x = start; x <= stop; x += step) {
+        drawDash(x);
+      }
+
+      for (let x = start - step; x >= this.extremums.x.min; x -= step) {
+        drawDash(x);
+      }
     };
 
-    const drawYDash = (y: number) => {
-      const dashY = edges.bottom - (y - this.extremums.y.min) * scale.y;
-      this.grid.ctx.moveTo(center.x - dashSize / 2, dashY);
-      this.grid.ctx.lineTo(center.x + dashSize / 2, dashY);
+    const drawVerticalDashes = () => {
+      const drawDash = (y: number) => {
+        const dashY =
+          this.edges.bottom - (y - this.extremums.y.min) * this.scale.y;
+        this.grid.ctx.moveTo(center.x - dashSize / 2, dashY);
+        this.grid.ctx.lineTo(center.x + dashSize / 2, dashY);
 
-      this.grid.ctx.save();
+        this.grid.ctx.save();
 
-      this.grid.ctx.textBaseline = "top";
-      this.grid.ctx.textAlign = "left";
+        this.grid.ctx.textBaseline = "top";
+        this.grid.ctx.textAlign = "left";
 
-      const label = Math.round(y).toString();
-      const { width } = measureText(this.grid.ctx, label);
+        const label = Math.round(y).toString();
+        const { width } = measureText(this.grid.ctx, label);
 
-      const angle = degToRad(45);
+        const angle = degToRad(45);
 
-      this.grid.ctx.translate(
-        center.x - dashSize / 2 - dashMargin - width * Math.cos(angle),
-        dashY
-      );
-      this.grid.ctx.rotate(angle);
-      this.grid.ctx.fillText(label, 0, -(width * Math.sin(angle)) / 2);
-      this.grid.ctx.restore();
+        this.grid.ctx.translate(
+          center.x - dashSize / 2 - dashMargin - width * Math.cos(angle),
+          dashY - (width * Math.sin(angle)) / 2
+        );
+        this.grid.ctx.rotate(angle);
+        this.grid.ctx.fillText(label, 0, 0);
+        this.grid.ctx.restore();
+      };
+
+      const start = (this.extremums.y.min + this.extremums.y.max) / 2;
+      const stop = this.extremums.y.max;
+      const step = (stop - start) / 10;
+
+      for (let y = start; y <= stop; y += step) {
+        drawDash(y);
+      }
+
+      for (let y = start - step; y >= this.extremums.y.min; y -= step) {
+        drawDash(y);
+      }
     };
 
-    let start = (this.extremums.x.min + this.extremums.x.max) / 2;
-    let stop = this.extremums.x.max;
-    let step = (stop - start) / 10;
-
-    for (let x = start; x <= stop; x += step) {
-      drawXDash(x);
-    }
-    for (let x = start - step; x >= this.extremums.x.min; x -= step) {
-      drawXDash(x);
-    }
-
-    start = (this.extremums.y.min + this.extremums.y.max) / 2;
-    stop = this.extremums.y.max;
-    step = (stop - start) / 10;
-
-    for (let y = start; y <= stop; y += step) {
-      drawYDash(y);
-    }
-    for (let y = start - step; y >= this.extremums.y.min; y -= step) {
-      drawYDash(y);
-    }
+    drawHorizontalDashes();
+    drawVerticalDashes();
 
     this.grid.ctx.stroke();
 
