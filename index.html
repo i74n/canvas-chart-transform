@@ -4,12 +4,23 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/canvas-chart-transform/assets/favicon.17e50649.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite App</title>
-    <script type="module" crossorigin src="/canvas-chart-transform/assets/index.ad4f7fa4.js"></script>
-    <link rel="stylesheet" href="/canvas-chart-transform/assets/index.06d14ce2.css">
+    <title>Canvas chart transforms</title>
+    <script type="module" crossorigin src="/canvas-chart-transform/assets/index.8ae63e6d.js"></script>
+    <link rel="modulepreload" href="/canvas-chart-transform/assets/vendor.d8cc8c60.js">
+    <link rel="stylesheet" href="/canvas-chart-transform/assets/index.6d4d0105.css">
   </head>
-  <body>
-    <div id="app"></div>
+  <body
+    class="flex h-screen items-center justify-center overflow-hidden bg-gray-900"
+  >
+    <select
+      id="functions"
+      class="fixed top-4 left-4 bg-gray-700 text-gray-50"
+    ></select>
+    <select
+      id="easing"
+      class="fixed top-4 right-4 bg-gray-700 text-gray-50"
+    ></select>
+    <div id="chart" class="chart"></div>
     
   </body>
 </html>
